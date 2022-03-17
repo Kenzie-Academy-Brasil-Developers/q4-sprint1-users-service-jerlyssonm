@@ -47,7 +47,7 @@ const validateSchema = (schema) => async (req, res, next) => {
 
     return next();
   } catch (err) {
-    return res.status(400).json({ error: `${err.errors}` });
+    return res.status(422).json({ error: `${err.errors}` });
   }
 };
 
@@ -57,7 +57,7 @@ const validateUserOn = (req, res, next) => {
     const token = req.headers.authorization.split(' ')[1];
     jwt.verify(token, config.secret, (err, decode) => {
       if (err) {
-        return res.status(401).json({ error: err });
+        return res.status(401).json({ error: 'no token authorization' });
       }
       if (usersDB.find((user) => user.password === decode.password)) {
         req.userOn = usersDB.find((user) => user.password === decode.password);

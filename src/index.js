@@ -41,7 +41,7 @@ const validateSchema = (schema) => async (req, res, next) => {
   try {
     const dataValid = await schema.validate(req.body, {
       abortEarly: false,
-      stripUnknow: true,
+      stripUnknown: true,
     });
     req.validated = dataValid;
 
@@ -59,7 +59,7 @@ const validateUserOn = (req, res, next) => {
       if (err) {
         return res.status(401).json({ error: 'no token authorization' });
       }
-      if (usersDB.find((user) => user.password === decode.password)) {
+      if (usersDB.find((user) => user.uuid === decode.uuid)) {
         req.userOn = usersDB.find((user) => user.password === decode.password);
         return next();
       }
@@ -97,7 +97,7 @@ app.post('/login', validateSchema(loginSchema), async (req, res) => {
     const match = await bcrypt.compare(validated.password, user.password);
 
     const token = jwt.sign(
-      { username: validated.username, password: user.password },
+      { username: validated.username, password: user.password, uuid: user.uuid },
       config.secret,
       { expiresIn: config.expiresIn },
     );

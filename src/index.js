@@ -51,8 +51,32 @@ const validateSchema = (schema) => async (req, res, next) => {
   }
 };
 
+const authenticateUser = async (req, res, next) => {
+  try {
+    const { validated } = req;
+    const user = usersDB.find((use) => use.username === validated.username);
+    const match = await bcrypt.compare(validated.password, user.password);
+
+    const token = jwt.sign(
+      { username: validated.username, password: user.password, uuid: user.uuid },
+      config.secret,
+      { expiresIn: config.expiresIn },
+    );
+
+    if (match) {
+      req.token = token;
+      return next();
+    }
+    return res.status(401).json({ message: 'password invalid.' });
+  } catch (err) {
+    return res.status(401).json({
+      message: 'username invalid',
+    });
+  }
+};
+
 // eslint-disable-next-line consistent-return
-const validateUserOn = (req, res, next) => {
+const authorizateUser = (req, res, next) => {
   try {
     const token = req.headers.authorization.split(' ')[1];
     jwt.verify(token, config.secret, (err, decode) => {
@@ -90,31 +114,13 @@ app.post('/signup', validateSchema(userSchema), async (req, res) => {
   }
 });
 
-app.post('/login', validateSchema(loginSchema), async (req, res) => {
-  try {
-    const { validated } = req;
-    const user = usersDB.find((use) => use.username === validated.username);
-    const match = await bcrypt.compare(validated.password, user.password);
-
-    const token = jwt.sign(
-      { username: validated.username, password: user.password, uuid: user.uuid },
-      config.secret,
-      { expiresIn: config.expiresIn },
-    );
-
-    if (match) {
-      return res.json({ token: `${token}` });
-    }
-    return res.status(404).json({ message: 'password invalid.' });
-  } catch (err) {
-    return res.status(400).json({
-      message: 'username invalid',
-    });
-  }
+app.post('/login', validateSchema(loginSchema), authenticateUser, async (req, res) => {
+  const { token } = req;
+  return res.json({ token: `${token}` });
 });
 
 // eslint-disable-next-line consistent-return
-app.get('/users', validateUserOn, (req, res) => {
+app.get('/users', authorizateUser, (req, res) => {
   if (req.userOn) {
     return res.json(usersDB);
   }
@@ -122,7 +128,7 @@ app.get('/users', validateUserOn, (req, res) => {
 
 app.put(
   '/users/:uuid/password',
-  validateUserOn,
+  authorizateUser,
   validateSchema(passwordSchema),
   async (req, res) => {
     try {
